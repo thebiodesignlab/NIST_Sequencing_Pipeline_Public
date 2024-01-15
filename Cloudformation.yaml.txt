@@ -1,0 +1,60 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: AWS CloudFormation Template for NIST Bartender EC2 Instance
+
+Parameters:
+  KeyName:
+    Description: Name of an existing EC2 KeyPair to enable SSH access
+    Type: AWS::EC2::KeyPair::KeyName
+
+Resources:
+  BartenderEC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t2.medium # Change to the instance type you need
+      SecurityGroups:
+        - Ref: BartenderSecurityGroup
+      SubnetId: !Ref PublicSubnet # Replace with your public subnet ID
+      AssociatePublicIpAddress: true
+      KeyName:
+        Ref: KeyName
+      ImageId: ami-0abcdef1234567890 # Specify the correct Windows AMI ID
+      UserData: 
+        UserData: 
+		Fn::Base64: !Sub |
+		    <powershell>
+		    # Define the URL of the zip file containing the NIST Bartender software
+		    $zipFileUrl = "URL_to_Zip_File" # Replace with the actual URL
+
+		    # Define the local path to save the zip file
+		    $localZipFile = "C:\NISTBartender.zip"
+
+		    # Define the directory to extract the contents of the zip file
+		    $extractToDir = "C:\NISTBartender"
+
+		    # Download the zip file
+		    Invoke-WebRequest -Uri $zipFileUrl -OutFile $localZipFile
+
+		    # Create the directory to extract files to
+		    New-Item -ItemType Directory -Force -Path $extractToDir
+
+		    # Extract the zip file
+		    Expand-Archive -LiteralPath $localZipFile -DestinationPath $extractToDir
+
+		    # Run the BartenderWindow.exe (adjust the path if necessary)
+		    Start-Process -FilePath "$extractToDir\BartenderWindow.exe"
+		    </powershell>
+
+  BartenderSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security Group for NIST Bartender EC2 instance
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: '3389' # RDP port
+          ToPort: '3389'
+          CidrIp: 0.0.0.0/0 # Restrict this to your IP range for better security
+
+Outputs:
+  InstanceId:
+    Description: The Instance ID of the created EC2 instance
+    Value: !Ref BartenderEC2Instance
